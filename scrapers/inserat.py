@@ -3,7 +3,7 @@ from libs.websites import kleinanzeigen as lib
 import re
 
 
-async def get_inserate_details(url: str, page):
+async def get_inserate_details(url: str, page) -> dict:
     """
     Scrapes the details of an Inserat from the given URL using the provided Playwright page.
     Args:

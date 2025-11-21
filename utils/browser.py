@@ -3,6 +3,10 @@ from utils.user_agent import get_random_ua
 
 
 class PlaywrightManager:
+    """
+    Manages Playwright browser instances.
+    """
+
     def __init__(self):
         self._playwright = None
         self._browser = None

@@ -1,5 +1,5 @@
 # from scrapers.inserat import get_inserate_details
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 # from utils.browser import PlaywrightManager
 # from config import INSERAT_URL_TEMPLATE

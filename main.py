@@ -7,7 +7,11 @@ from fastapi import FastAPI
 from routers import inserate, inserat
 from endpoints import root
 
-app = FastAPI(version="1.0.0")
+app = FastAPI(
+    title="Kleinanzeigen Hunter API",
+    version="1.0.0",
+    description="API for scraping and managing Kleinanzeigen listings"
+)
 
 
 app.get("/")(root)
