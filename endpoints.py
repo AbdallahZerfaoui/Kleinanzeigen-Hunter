@@ -3,6 +3,7 @@
 from fastapi import Query
 
 from config import CACHE_TTL_SECONDS, INSERAT_URL_TEMPLATE
+from models.results import ListingResult
 from scrapers.inserate import get_inserate_klaz
 from scrapers.inserat import get_inserate_details
 from utils.browser import PlaywrightManager
@@ -72,7 +73,9 @@ async def get_inserate(
         results = await get_inserate_klaz(
             browser_manager, query, location, radius, min_price, max_price, page_count
         )
-        await set_cached_value(cache_key, results, ttl=CACHE_TTL_SECONDS)
-        return {"success": True, "data": results, "cached": False}
+        # Validate and normalize with ListingResult model
+        listings = [ListingResult(**item).model_dump() for item in results]
+        await set_cached_value(cache_key, listings, ttl=CACHE_TTL_SECONDS)
+        return {"success": True, "data": listings, "cached": False}
     finally:
         await browser_manager.close()
