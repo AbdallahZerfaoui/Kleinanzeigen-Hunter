@@ -8,4 +8,4 @@ from endpoints import get_inserat
 router = APIRouter()
 
 
-router.get("/inserat/{id}")(get_inserat)
+router.get("/inserat/{inserat_id}")(get_inserat)

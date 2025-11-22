@@ -1,13 +1,12 @@
-"""
-Main application file for the Kleinanzeigen API.
-Sets up the FastAPI app and includes routers for different endpoints.
-"""
+"""Endpoint implementations for the Kleinanzeigen API."""
 
-from utils.browser import PlaywrightManager
-from config import INSERAT_URL_TEMPLATE
+from fastapi import Query
+
+from config import CACHE_TTL_SECONDS, INSERAT_URL_TEMPLATE
 from scrapers.inserate import get_inserate_klaz
 from scrapers.inserat import get_inserate_details
-from fastapi import Query
+from utils.browser import PlaywrightManager
+from utils.cache import build_cache_key, get_cached_value, set_cached_value
 
 
 async def root():
@@ -18,21 +17,27 @@ async def root():
     """
     return {
         "message": "Welcome to the Kleinanzeigen API",
-        "endpoints": ["/inserate", "/inserat/{id}"],
+        "endpoints": ["/inserate", "/inserat/{inserat_id}"],
     }
 
 
-async def get_inserat(id: str) -> dict:
+async def get_inserat(inserat_id: str) -> dict:
     """
     Fetch details of a specific inserat by ID.
     """
+    cache_key = build_cache_key("inserat", id=inserat_id)
+    cached = await get_cached_value(cache_key)
+    if cached is not None:
+        return {"success": True, "data": cached, "cached": True}
+
     browser_manager = PlaywrightManager()
     await browser_manager.start()
     try:
         page = await browser_manager.new_context_page()
-        url = INSERAT_URL_TEMPLATE.format(id=id)
+        url = INSERAT_URL_TEMPLATE.format(id=inserat_id)
         result = await get_inserate_details(url, page)
-        return {"success": True, "data": result}
+        await set_cached_value(cache_key, result, ttl=CACHE_TTL_SECONDS)
+        return {"success": True, "data": result, "cached": False}
     finally:
         await browser_manager.close()
 
@@ -48,6 +53,18 @@ async def get_inserate(
     """
     Search for inserate based on query parameters.
     """
+    cache_key = build_cache_key(
+        "inserate",
+        query=query,
+        location=location,
+        radius=radius,
+        min_price=min_price,
+        max_price=max_price,
+        page_count=page_count,
+    )
+    cached = await get_cached_value(cache_key)
+    if cached is not None:
+        return {"success": True, "data": cached, "cached": True}
 
     browser_manager = PlaywrightManager()
     await browser_manager.start()
@@ -55,6 +72,7 @@ async def get_inserate(
         results = await get_inserate_klaz(
             browser_manager, query, location, radius, min_price, max_price, page_count
         )
-        return {"success": True, "data": results}
+        await set_cached_value(cache_key, results, ttl=CACHE_TTL_SECONDS)
+        return {"success": True, "data": results, "cached": False}
     finally:
         await browser_manager.close()
