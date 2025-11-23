@@ -6,6 +6,7 @@ Sets up the FastAPI app and includes routers for different endpoints.
 from fastapi import FastAPI
 from routers import inserate, inserat
 from endpoints import root
+from routers import rentals
 
 app = FastAPI(
     title="Kleinanzeigen Hunter API",
@@ -19,3 +20,4 @@ app.get("/")(root)
 
 app.include_router(inserate.router)
 app.include_router(inserat.router)
+app.include_router(rentals.router)

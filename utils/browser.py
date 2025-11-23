@@ -16,11 +16,17 @@ class PlaywrightManager:
         self._browser = await self._playwright.chromium.launch(headless=True)
 
     async def new_context_page(self):
+        print("[DEBUG] PlaywrightManager: Creating new browser context...")
         context = await self._browser.new_context(user_agent=get_random_ua())
-        return await context.new_page()
+        print("[DEBUG] PlaywrightManager: Creating new page...")
+        page = await context.new_page()
+        print("[DEBUG] PlaywrightManager: Page created successfully")
+        return page
 
     async def close_page(self, page):
+        print("[DEBUG] PlaywrightManager: Closing page...")
         await page.close()
+        print("[DEBUG] PlaywrightManager: Page closed")
 
     async def close(self):
         if self._browser:
