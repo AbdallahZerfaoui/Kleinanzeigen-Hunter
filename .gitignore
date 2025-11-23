@@ -65,3 +65,7 @@ coverage.xml
 # Project specific
 .pytest_cache/
 .ruff_cache/
+
+# Database
+*.db
+*.sqlite3
