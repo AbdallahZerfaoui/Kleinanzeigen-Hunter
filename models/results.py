@@ -34,16 +34,16 @@ class ListingResult(BaseModel):
 class RealEstateResult(ListingResult):
     """Detailed listing for real-estate inserat pages."""
 
-    status: Optional[str] = "active"
-    categories: List[str] = Field(default_factory=list)
-    delivery: Optional[str] = None
+    rental_space: Optional[int] = None
+    nbr_rooms: Optional[float] = None
     location: Optional[Dict[str, Any]] = None
     views: Optional[int] = None
-    images: List[str] = Field(default_factory=list)
     details: Dict[str, Any] = Field(default_factory=dict)
     features: Dict[str, Any] = Field(default_factory=dict)
-    seller: Optional[Dict[str, Any]] = None
-    extra_info: Optional[Dict[str, Any]] = None
+    old_price: Optional[int] = None
+    additional_costs: Optional[int] = None
+    deposit: Optional[int] = None
+    available_from: Optional[str] = None
 
     @field_validator("views", mode="before")
     @classmethod

@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from config import KLEINANZEIGEN_BASE_URL
 from utils.browser import PlaywrightManager
 
+
 async def build_search_url(
     postal_code: str,
     category: str,
@@ -42,7 +43,7 @@ async def build_search_url(
     # Build the complete path: /s-wohnung-mieten/{postal_code}{price_path}{page_path}/{category}{location_id}r{radius}
     # Example: /s-wohnung-mieten/74072/preis:500:1000/seite:2/c203l9245r5
     location_param = f"{location_id}" if location_id else ""
-    search_path = f"/s-wohnung-mieten/s-{postal_code}{price_path}{page_path}/{category}{location_param}r{radius}"
+    search_path = f"/s-wohnung-mieten/{postal_code}{price_path}{page_path}/{category}{location_param}r{radius}"
 
     # Construct the full URL
     search_url = KLEINANZEIGEN_BASE_URL + search_path
@@ -76,35 +77,18 @@ async def get_rentals_klaz(
     Returns:
         list: A list of dictionaries containing the scraped rental details.
     """
-    # base_url = KLEINANZEIGEN_BASE_URL
 
-    # # Build the price filter part of the path
-    # price_path = ""
-    # if min_price is not None or max_price is not None:
-    #     min_price_str = str(min_price) if min_price is not None else ""
-    #     max_price_str = str(max_price) if max_price is not None else ""
-    #     price_path = f"/preis:{min_price_str}:{max_price_str}"
-
-    # # Build the base path: /s-wohnung-mieten/{postal_code}/{category}{location_id}r{radius}
-    # # Example: /s-wohnung-mieten/74072/c203l9245r5
-    # location_param = f"{location_id}" if location_id else ""
-    # base_path = f"/s-wohnung-mieten/{postal_code}/{category}{location_param}r{radius}"
-
-    # # Add price and pagination
-    # search_path = f"{base_path}{price_path}/seite:{{page}}"
-
-    # # Construct the full URL
-    # search_url = base_url + search_path
-
-    print(f"[DEBUG] Starting rental scrape for postal_code={postal_code}, category={category}")
+    print(
+        f"[DEBUG] Starting rental scrape for postal_code={postal_code}, category={category}"
+    )
     expected_category_id = _normalize_category_id(category)
     allowed_category_ids = [expected_category_id] if expected_category_id else None
     print(f"[DEBUG] Expected category ID: {expected_category_id}")
-    
+
     print("[DEBUG] Creating browser page...")
     browser_page = await browser_manager.new_context_page()
     print("[DEBUG] Browser page created successfully")
-    
+
     try:
         results = []
 
@@ -121,17 +105,17 @@ async def get_rentals_klaz(
                 page=i + 1,
             )
             print(f"[DEBUG] Built search URL: {search_url}")
-            
+
             print("[DEBUG] Navigating to page (timeout=120s)...")
-            await browser_page.goto(search_url, timeout=120000, wait_until="domcontentloaded")
+            await browser_page.goto(
+                search_url, timeout=120000, wait_until="domcontentloaded"
+            )
             print("[DEBUG] Navigation completed, waiting for ad listings to appear...")
-            
+
             # Wait for the actual ad list container instead of networkidle
             try:
                 await browser_page.wait_for_selector(
-                    ".ad-listitem",
-                    timeout=30000,
-                    state="visible"
+                    ".ad-listitem", timeout=30000, state="visible"
                 )
                 print("[DEBUG] Ad listings loaded successfully")
             except Exception as wait_err:
@@ -144,7 +128,7 @@ async def get_rentals_klaz(
             )
             print(f"[DEBUG] Found {len(page_results)} rental ads on page {i + 1}")
             results.extend(page_results)
-            
+
         print(f"[DEBUG] Scraping completed. Total results: {len(results)}")
         return results
     except Exception as e:
@@ -171,6 +155,20 @@ def _extract_category_id_from_url(url: str) -> Optional[str]:
     return None
 
 
+def _clean_price_text(value: Optional[str]) -> str:
+    """Normalize price strings such as '1.396 €' to '1396'."""
+
+    if not value:
+        return ""
+    return (
+        value.replace("€", "")
+        .replace("VB", "")
+        .replace(".", "")
+        .replace("\u00a0", "")
+        .strip()
+    )
+
+
 async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = None):
     """Extract rental listings from the current page."""
 
@@ -182,9 +180,7 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
     print(f"[DEBUG] get_rental_ads: Found {len(items)} items on the page")
 
     results = []
-    normalized_allowed = {
-        cid for cid in (allowed_category_ids or []) if cid
-    }
+    normalized_allowed = {cid for cid in (allowed_category_ids or []) if cid}
     print(f"[DEBUG] get_rental_ads: Allowed category IDs: {normalized_allowed}")
 
     for idx, item in enumerate(items):
@@ -200,17 +196,50 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
             )
             title_text = await title_element.inner_text() if title_element else ""
 
-            # Get price (rent)
-            price = await article.query_selector(
+            # Get price (rent) and old price if available
+            price_container = await article.query_selector(
                 "p.aditem-main--middle--price-shipping--price"
             )
-            price_text = await price.inner_text() if price else ""
-            price_text = (
-                price_text.replace("€", "")
-                .replace("VB", "")
-                .replace(".", "")
-                .strip()
-            )
+            price_text = ""
+            old_price_text = "0"
+
+            if price_container:
+                price_text_raw = await price_container.evaluate(
+                    """(el) => {
+                        const textNode = Array.from(el.childNodes || [])
+                            .find((node) => node.nodeType === 3 && node.textContent.trim());
+                        if (textNode) {
+                            return textNode.textContent.trim();
+                        }
+                        const clone = el.cloneNode(true);
+                        const oldPrice = clone.querySelector('.aditem-main--middle--price-shipping--old-price');
+                        if (oldPrice) {
+                            oldPrice.remove();
+                        }
+                        return clone.textContent.trim();
+                    }"""
+                )
+                price_text = _clean_price_text(price_text_raw)
+
+                old_price_element = await price_container.query_selector(
+                    "span.aditem-main--middle--price-shipping--old-price"
+                )
+                if old_price_element:
+                    old_price_raw = await old_price_element.inner_text()
+                    old_price_text = _clean_price_text(old_price_raw)
+                    if not old_price_text:
+                        old_price_text = "0"
+
+                    if not price_text:
+                        full_price_text = await price_container.inner_text()
+                        current_price_part = full_price_text.replace(
+                            old_price_raw, ""
+                        ).strip()
+                        price_text = _clean_price_text(current_price_part)
+
+                if not price_text:
+                    fallback_price_text = await price_container.inner_text()
+                    price_text = _clean_price_text(fallback_price_text)
 
             # Get description
             description = await article.query_selector(
@@ -223,18 +252,25 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
 
                 category_id = _extract_category_id_from_url(data_href)
                 if normalized_allowed and category_id not in normalized_allowed:
-                    print(f"[DEBUG] get_rental_ads: Skipping ad {data_adid} (category {category_id} not in allowed list)")
+                    print(
+                        f"[DEBUG] get_rental_ads: Skipping ad {data_adid} (category {category_id} not in allowed list)"
+                    )
                     continue
 
-                print(f"[DEBUG] get_rental_ads: Added ad {data_adid} - {title_text[:50]}")
-                results.append(
-                    {
-                        "adid": data_adid,
-                        "url": data_href,
-                        "title": title_text,
-                        "price": price_text,
-                        "description": description_text,
-                    }
+                print(
+                    f"[DEBUG] get_rental_ads: Added ad {data_adid} - {title_text[:50]}"
                 )
-    print(f"[DEBUG] get_rental_ads: Extraction complete, returning {len(results)} results")
+                result_item = {
+                    "adid": data_adid,
+                    "url": data_href,
+                    "title": title_text,
+                    "price": price_text,
+                    "old_price": old_price_text,
+                    "description": description_text,
+                }
+
+                results.append(result_item)
+    print(
+        f"[DEBUG] get_rental_ads: Extraction complete, returning {len(results)} results"
+    )
     return results

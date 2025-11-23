@@ -27,4 +27,4 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_URL = os.getenv("REDIS_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}")
 CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
-CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").strip().lower() in {"1", "true", "yes"}
+CACHE_ENABLED = os.getenv("CACHE_ENABLED", "false").strip().lower() in {"1", "true", "yes"}

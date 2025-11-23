@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Query
 
-from models.results import ListingResult
+from models.results import ListingResult, RealEstateResult
 from scrapers.rentals import get_rentals_klaz, build_search_url
 from utils.browser import PlaywrightManager
 from utils.cache import build_cache_key, get_cached_value, set_cached_value
@@ -73,7 +73,7 @@ async def get_rentals(
         )
         print(f"Scraped {len(results)} rental listings.")
         # Validate and normalize with ListingResult model
-        listings = [ListingResult(**item).model_dump() for item in results]
+        listings = [RealEstateResult(**item).model_dump() for item in results]
         await set_cached_value(cache_key, listings, ttl=CACHE_TTL_SECONDS)
         return {
             "success": True,
