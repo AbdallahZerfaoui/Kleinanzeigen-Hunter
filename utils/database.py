@@ -45,6 +45,8 @@ class Rental(Base):
     rental_space = Column(String(32), nullable=True)
     nbr_rooms = Column(String(16), nullable=True)
     available_from = Column(String(64), nullable=True)
+    views = Column(String(16), nullable=True)
+    location = Column(String(256), nullable=True)
     postal_code = Column(String(32), nullable=True)
     category = Column(String(64), nullable=True)
     location_id = Column(String(64), nullable=True)
@@ -89,6 +91,8 @@ def insert_rental(
     rental_space: Optional[str] = None,
     nbr_rooms: Optional[str] = None,
     available_from: Optional[str] = None,
+    views: Optional[str] = None,
+    location: Optional[str] = None,
     postal_code: Optional[str] = None,
     category: Optional[str] = None,
     location_id: Optional[str] = None,
@@ -108,6 +112,8 @@ def insert_rental(
                 rental_space=rental_space,
                 nbr_rooms=nbr_rooms,
                 available_from=available_from,
+                views=views,
+                location=location,
                 postal_code=postal_code,
                 category=category,
                 location_id=location_id,
@@ -125,6 +131,8 @@ def insert_rental(
             existing.rental_space = rental_space
             existing.nbr_rooms = nbr_rooms
             existing.available_from = available_from
+            existing.views = views
+            existing.location = location
             existing.postal_code = postal_code
             existing.category = category
             existing.location_id = location_id
@@ -160,6 +168,8 @@ def bulk_insert_rentals(
                     rental_space=r.get("rental_space"),
                     nbr_rooms=r.get("nbr_rooms"),
                     available_from=r.get("available_from"),
+                    views=r.get("views"),
+                    location=r.get("location"),
                     postal_code=postal_code,
                     category=category,
                     location_id=location_id,
@@ -176,6 +186,8 @@ def bulk_insert_rentals(
                 existing.rental_space = r.get("rental_space") or existing.rental_space
                 existing.nbr_rooms = r.get("nbr_rooms") or existing.nbr_rooms
                 existing.available_from = r.get("available_from") or existing.available_from
+                existing.views = r.get("views") or existing.views
+                existing.location = r.get("location") or existing.location
                 existing.postal_code = postal_code or existing.postal_code
                 existing.category = category or existing.category
                 existing.location_id = location_id or existing.location_id
@@ -201,6 +213,8 @@ def get_rental_by_adid(adid: str) -> Optional[Dict[str, Any]]:
             "rental_space": r.rental_space,
             "nbr_rooms": r.nbr_rooms,
             "available_from": r.available_from,
+            "views": r.views,
+            "location": r.location,
             "postal_code": r.postal_code,
             "category": r.category,
             "location_id": r.location_id,
@@ -231,6 +245,8 @@ def get_all_rentals(limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
                 "rental_space": r.rental_space,
                 "nbr_rooms": r.nbr_rooms,
                 "available_from": r.available_from,
+                "views": r.views,
+                "location": r.location,
                 "postal_code": r.postal_code,
                 "category": r.category,
                 "location_id": r.location_id,

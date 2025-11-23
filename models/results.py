@@ -36,7 +36,7 @@ class RealEstateResult(ListingResult):
 
     rental_space: Optional[int] = None
     nbr_rooms: Optional[float] = None
-    location: Optional[Dict[str, Any]] = None
+    location: Optional[str] = None
     views: Optional[int] = None
     details: Dict[str, Any] = Field(default_factory=dict)
     features: Dict[str, Any] = Field(default_factory=dict)
@@ -44,6 +44,34 @@ class RealEstateResult(ListingResult):
     additional_costs: Optional[int] = None
     deposit: Optional[int] = None
     available_from: Optional[str] = None
+
+    @field_validator("rental_space", mode="before")
+    @classmethod
+    def _normalize_rental_space(cls, value: Any) -> Optional[int]:
+        if value in (None, ""):
+            return None
+        if isinstance(value, str):
+            digits = "".join(ch for ch in value if ch.isdigit())
+            return int(digits) if digits else None
+        if isinstance(value, (int, float)):
+            return int(value)
+        return None
+
+    @field_validator("nbr_rooms", mode="before")
+    @classmethod
+    def _normalize_nbr_rooms(cls, value: Any) -> Optional[float]:
+        if value in (None, ""):
+            return None
+        if isinstance(value, str):
+            # Replace comma with dot for German decimal format
+            normalized = value.replace(",", ".")
+            try:
+                return float(normalized)
+            except ValueError:
+                return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        return None
 
     @field_validator("views", mode="before")
     @classmethod

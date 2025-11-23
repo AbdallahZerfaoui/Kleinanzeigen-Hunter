@@ -124,7 +124,7 @@ async def get_rentals_klaz(
 
             print("[DEBUG] Extracting rental ads from page...")
             page_results = await get_rental_ads(
-                browser_page, allowed_category_ids=allowed_category_ids
+                browser_page, browser_manager, allowed_category_ids
             )
             print(f"[DEBUG] Found {len(page_results)} rental ads on page {i + 1}")
             results.extend(page_results)
@@ -169,7 +169,101 @@ def _clean_price_text(value: Optional[str]) -> str:
     )
 
 
-async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = None):
+async def scrape_detail_page(browser_manager: PlaywrightManager, url: str, adid: str):
+    """Scrape detailed information from an individual listing page."""
+    import re
+    
+    print(f"[DEBUG] scrape_detail_page: Creating new page for {adid}")
+    detail_page = await browser_manager.new_context_page()
+    
+    try:
+        print(f"[DEBUG] scrape_detail_page: Navigating to {url}")
+        await detail_page.goto(url, timeout=60000, wait_until="domcontentloaded")
+        await detail_page.wait_for_selector("#viewad-details", timeout=10000)
+    except Exception as e:
+        print(f"[DEBUG] scrape_detail_page: Failed to load detail page: {e}")
+        await browser_manager.close_page(detail_page)
+        return {}
+    
+    details = {}
+    
+    # Extract rental_space from addetailslist
+    try:
+        # Look for "Wohnfläche" detail
+        detail_items = await detail_page.query_selector_all("li.addetailslist--detail")
+        for item in detail_items:
+            text = await item.inner_text()
+            if "Wohnfläche" in text:
+                value_elem = await item.query_selector("span.addetailslist--detail--value")
+                if value_elem:
+                    value = await value_elem.inner_text()
+                    # Extract number from "112 m²"
+                    match = re.search(r'(\d+)', value)
+                    if match:
+                        details['rental_space'] = match.group(1)
+                        print(f"[DEBUG] Extracted rental_space: {details['rental_space']}")
+                break
+    except Exception as e:
+        print(f"[DEBUG] Failed to extract rental_space: {e}")
+    
+    # Extract nbr_rooms from addetailslist
+    try:
+        detail_items = await detail_page.query_selector_all("li.addetailslist--detail")
+        for item in detail_items:
+            text = await item.inner_text()
+            # Match "Zimmer" but not "Schlafzimmer" or "Badezimmer"
+            if text.strip().startswith("Zimmer"):
+                value_elem = await item.query_selector("span.addetailslist--detail--value")
+                if value_elem:
+                    value = await value_elem.inner_text()
+                    details['nbr_rooms'] = value.strip()
+                    print(f"[DEBUG] Extracted nbr_rooms: {details['nbr_rooms']}")
+                break
+    except Exception as e:
+        print(f"[DEBUG] Failed to extract nbr_rooms: {e}")
+    
+    # Extract available_from from addetailslist
+    try:
+        detail_items = await detail_page.query_selector_all("li.addetailslist--detail")
+        for item in detail_items:
+            text = await item.inner_text()
+            if "Verfügbar ab" in text:
+                value_elem = await item.query_selector("span.addetailslist--detail--value")
+                if value_elem:
+                    value = await value_elem.inner_text()
+                    details['available_from'] = value.strip()
+                    print(f"[DEBUG] Extracted available_from: {details['available_from']}")
+                break
+    except Exception as e:
+        print(f"[DEBUG] Failed to extract available_from: {e}")
+    
+    # Extract views from viewad-cntr-num
+    try:
+        views_elem = await detail_page.query_selector("#viewad-cntr-num")
+        if views_elem:
+            views = await views_elem.inner_text()
+            details['views'] = views.strip()
+            print(f"[DEBUG] Extracted views: {details['views']}")
+    except Exception as e:
+        print(f"[DEBUG] Failed to extract views: {e}")
+    
+    # Extract location from viewad-locality
+    try:
+        locality_elem = await detail_page.query_selector("#viewad-locality")
+        if locality_elem:
+            location = await locality_elem.inner_text()
+            details['location'] = location.strip()
+            print(f"[DEBUG] Extracted location: {details['location']}")
+    except Exception as e:
+        print(f"[DEBUG] Failed to extract location: {e}")
+    
+    # Close the detail page
+    await browser_manager.close_page(detail_page)
+    
+    return details
+
+
+async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_category_ids: Optional[Sequence[str]] = None):
     """Extract rental listings from the current page."""
     import re
 
@@ -258,10 +352,11 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
                     )
                     continue
 
-                # Extract additional details: rental_space, nbr_rooms, available_from
+                # Extract additional details: rental_space, nbr_rooms, available_from, location
                 rental_space = None
                 nbr_rooms = None
                 available_from = None
+                location = None
 
                 # Get ALL text content from the article to search for details
                 article_full_text = await article.inner_text()
@@ -308,6 +403,23 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
                             nbr_rooms = room_match.group(1).replace(',', '.')
                             print(f"[DEBUG] Extracted nbr_rooms: {nbr_rooms} from '{detail_text[:50]}'")
 
+                    # Extract available from date - look for "Verfügbar ab" patterns
+                    if available_from is None:
+                        # Check if this element contains "Verfügbar ab" or "verfügbar"
+                        if "verfügbar" in detail_text.lower() or "available" in detail_text.lower():
+                            # First try to find a value span within this element
+                            value_span = await detail_elem.query_selector("span.addetailslist--detail--value")
+                            if value_span:
+                                available_from = await value_span.inner_text()
+                                available_from = available_from.strip()
+                                print(f"[DEBUG] Extracted available_from from span: {available_from}")
+                            else:
+                                # Fallback: Try to extract the date part after "ab" from text
+                                avail_match = re.search(r'(?:verfügbar\s+ab|ab)\s+(.+?)(?:\n|$)', detail_text, re.IGNORECASE)
+                                if avail_match:
+                                    available_from = avail_match.group(1).strip()
+                                    print(f"[DEBUG] Extracted available_from: {available_from} from '{detail_text[:50]}'")
+
                 # Final fallback: Extract from title if still not found
                 if nbr_rooms is None and title_text:
                     room_match = re.search(r'(\d+(?:[.,]\d+)?)\s*[\s-]*(?:Zimmer|Zi\.?)\b', title_text, re.IGNORECASE)
@@ -321,9 +433,29 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
                     if space_match:
                         rental_space = space_match.group(1)
                         print(f"[DEBUG] Extracted rental_space from full text: {rental_space}")
+                
+                # Search entire article text for available_from if still not found
+                if available_from is None:
+                    avail_match = re.search(r'(?:verfügbar\s+ab|ab)\s+([^\n]+?)(?=\s*(?:\d+\s*€|$))', article_full_text, re.IGNORECASE)
+                    if avail_match:
+                        available_from = avail_match.group(1).strip()
+                        print(f"[DEBUG] Extracted available_from from full text: {available_from}")
+
+                # Extract location/address
+                location_elem = await article.query_selector("#viewad-locality, [itemprop='addressLocality'], .boxedarticle--details--full")
+                if location_elem:
+                    location_text = await location_elem.inner_text()
+                    location = location_text.strip()
+                    print(f"[DEBUG] Extracted location: {location}")
+                elif location is None:
+                    # Fallback: look for postal code patterns (e.g., "74076 Baden-Württemberg - Heilbronn")
+                    location_match = re.search(r'\d{5}\s+[\w\s-]+', article_full_text)
+                    if location_match:
+                        location = location_match.group(0).strip()
+                        print(f"[DEBUG] Extracted location from text: {location}")
 
                 print(
-                    f"[DEBUG] get_rental_ads: Added ad {data_adid} - {title_text[:50]} (rooms: {nbr_rooms}, space: {rental_space})"
+                    f"[DEBUG] get_rental_ads: Added ad {data_adid} - {title_text[:50]} (rooms: {nbr_rooms}, space: {rental_space}, avail: {available_from}, loc: {location})"
                 )
                 result_item = {
                     "adid": data_adid,
@@ -335,6 +467,7 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
                     "rental_space": rental_space,
                     "nbr_rooms": nbr_rooms,
                     "available_from": available_from,
+                    "location": location,
                 }
 
                 results.append(result_item)
