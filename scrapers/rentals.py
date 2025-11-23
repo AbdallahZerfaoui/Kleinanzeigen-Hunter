@@ -424,10 +424,15 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
 
                     # Extract deposit (Kaution / Genossenschaftsanteile)
                     if deposit is None:
-                        deposit_match = re.search(r'(?:Kaution|Genoss\.?-?Anteile)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', detail_text, re.IGNORECASE)
+                        deposit_match = re.search(
+                            r'(?:Kaution|Genoss\.?\s*-?\s*Anteile)[^\d]*?(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)',
+                            detail_text,
+                            re.IGNORECASE | re.DOTALL
+                        )
                         if deposit_match:
                             raw_deposit = deposit_match.group(1)
-                            deposit = _clean_price_text(raw_deposit)
+                            # Clean: remove dots (thousand sep), keep comma (decimal sep)
+                            deposit = raw_deposit.replace('.', '').strip()
                             print(f"[DEBUG] Extracted deposit: {deposit} from '{detail_text[:60]}'")
 
                     # Extract additional costs (Nebenkosten / NK / Heizkosten)
@@ -461,9 +466,13 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
 
                 # Fallbacks for deposit & additional_costs in full article text
                 if deposit is None:
-                    deposit_match = re.search(r'(?:Kaution|Genoss\.?-?Anteile)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', article_full_text, re.IGNORECASE)
+                    deposit_match = re.search(
+                        r'(?:Kaution|Genoss\.?\s*-?\s*Anteile)[^\d]*?(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)',
+                        article_full_text,
+                        re.IGNORECASE | re.DOTALL
+                    )
                     if deposit_match:
-                        deposit = _clean_price_text(deposit_match.group(1))
+                        deposit = deposit_match.group(1).replace('.', '').strip()
                         print(f"[DEBUG] Extracted deposit from full text: {deposit}")
                 if additional_costs is None:
                     add_costs_match = re.search(r'(?:Nebenkosten|\bNK\b|Heizkosten)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', article_full_text, re.IGNORECASE)

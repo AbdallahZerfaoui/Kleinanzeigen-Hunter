@@ -47,6 +47,8 @@ class Rental(Base):
     available_from = Column(String(64), nullable=True)
     views = Column(String(16), nullable=True)
     location = Column(String(256), nullable=True)
+    additional_costs = Column(String(64), nullable=True)
+    deposit = Column(String(64), nullable=True)
     postal_code = Column(String(32), nullable=True)
     category = Column(String(64), nullable=True)
     location_id = Column(String(64), nullable=True)
@@ -93,6 +95,8 @@ def insert_rental(
     available_from: Optional[str] = None,
     views: Optional[str] = None,
     location: Optional[str] = None,
+    additional_costs: Optional[str] = None,
+    deposit: Optional[str] = None,
     postal_code: Optional[str] = None,
     category: Optional[str] = None,
     location_id: Optional[str] = None,
@@ -114,6 +118,8 @@ def insert_rental(
                 available_from=available_from,
                 views=views,
                 location=location,
+                additional_costs=additional_costs,
+                deposit=deposit,
                 postal_code=postal_code,
                 category=category,
                 location_id=location_id,
@@ -133,6 +139,8 @@ def insert_rental(
             existing.available_from = available_from
             existing.views = views
             existing.location = location
+            existing.additional_costs = additional_costs or existing.additional_costs
+            existing.deposit = deposit or existing.deposit
             existing.postal_code = postal_code
             existing.category = category
             existing.location_id = location_id
@@ -215,6 +223,8 @@ def get_rental_by_adid(adid: str) -> Optional[Dict[str, Any]]:
             "available_from": r.available_from,
             "views": r.views,
             "location": r.location,
+            "additional_costs": r.additional_costs,
+            "deposit": r.deposit,
             "postal_code": r.postal_code,
             "category": r.category,
             "location_id": r.location_id,

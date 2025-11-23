@@ -100,6 +100,43 @@ async def get_rentals(
         await browser_manager.close()
 
 
+@router.get("/{ad_id}")
+async def get_rental_by_id(ad_id: str) -> dict:
+    """
+    Get a specific rental property by its ad_id from the database.
+    
+    Example: GET /rentals/2887654321
+    
+    Returns:
+        - 200: Rental data if found
+        - 404: Error message if not in database
+    """
+    from utils.database import get_rental_by_adid
+    
+    rental = get_rental_by_adid(ad_id)
+    
+    if rental is None:
+        return {
+            "success": False,
+            "error": f"Sorry, I don't have ad_id '{ad_id}' in my database"
+        }
+    
+    # Convert to RealEstateResult for consistent formatting
+    try:
+        rental_result = RealEstateResult(**rental).model_dump()
+        return {
+            "success": True,
+            "data": rental_result
+        }
+    except Exception:
+        # Fallback: return raw data if validation fails
+        return {
+            "success": True,
+            "data": rental,
+            "warning": "Data returned without validation"
+        }
+
+
 # get the rental property details by id
 # @router.get("/details")
 # async def get_rental_details(
