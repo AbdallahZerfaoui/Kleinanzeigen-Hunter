@@ -357,6 +357,8 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
                 nbr_rooms = None
                 available_from = None
                 location = None
+                deposit = None
+                additional_costs = None
 
                 # Get ALL text content from the article to search for details
                 article_full_text = await article.inner_text()
@@ -389,8 +391,8 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
 
                     # Extract rental space - look for patterns with m²
                     if rental_space is None:
-                        # Match patterns like "112 m²", "112m²", "112 qm"
-                        space_match = re.search(r'(\d+)\s*(?:m²|m2|qm)', detail_text, re.IGNORECASE)
+                        # Match patterns like "112 m²", "112m²", "112 qm", "73,55 m²"
+                        space_match = re.search(r'(\d+(?:,\d+)?)\s*(?:m²|m2|qm)', detail_text, re.IGNORECASE)
                         if space_match:
                             rental_space = space_match.group(1)
                             print(f"[DEBUG] Extracted rental_space: {rental_space} from '{detail_text[:50]}'")
@@ -420,6 +422,22 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
                                     available_from = avail_match.group(1).strip()
                                     print(f"[DEBUG] Extracted available_from: {available_from} from '{detail_text[:50]}'")
 
+                    # Extract deposit (Kaution / Genossenschaftsanteile)
+                    if deposit is None:
+                        deposit_match = re.search(r'(?:Kaution|Genoss\.?-?Anteile)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', detail_text, re.IGNORECASE)
+                        if deposit_match:
+                            raw_deposit = deposit_match.group(1)
+                            deposit = _clean_price_text(raw_deposit)
+                            print(f"[DEBUG] Extracted deposit: {deposit} from '{detail_text[:60]}'")
+
+                    # Extract additional costs (Nebenkosten / NK / Heizkosten)
+                    if additional_costs is None:
+                        add_costs_match = re.search(r'(?:Nebenkosten|\bNK\b|Heizkosten)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', detail_text, re.IGNORECASE)
+                        if add_costs_match:
+                            raw_add = add_costs_match.group(1)
+                            additional_costs = _clean_price_text(raw_add)
+                            print(f"[DEBUG] Extracted additional_costs: {additional_costs} from '{detail_text[:60]}'")
+
                 # Final fallback: Extract from title if still not found
                 if nbr_rooms is None and title_text:
                     room_match = re.search(r'(\d+(?:[.,]\d+)?)\s*[\s-]*(?:Zimmer|Zi\.?)\b', title_text, re.IGNORECASE)
@@ -429,7 +447,7 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
                 
                 # Search entire article text for space if still not found
                 if rental_space is None:
-                    space_match = re.search(r'(\d+)\s*(?:m²|m2|qm)', article_full_text, re.IGNORECASE)
+                    space_match = re.search(r'(\d+(?:,\d+)?)\s*(?:m²|m2|qm)', article_full_text, re.IGNORECASE)
                     if space_match:
                         rental_space = space_match.group(1)
                         print(f"[DEBUG] Extracted rental_space from full text: {rental_space}")
@@ -440,6 +458,18 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
                     if avail_match:
                         available_from = avail_match.group(1).strip()
                         print(f"[DEBUG] Extracted available_from from full text: {available_from}")
+
+                # Fallbacks for deposit & additional_costs in full article text
+                if deposit is None:
+                    deposit_match = re.search(r'(?:Kaution|Genoss\.?-?Anteile)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', article_full_text, re.IGNORECASE)
+                    if deposit_match:
+                        deposit = _clean_price_text(deposit_match.group(1))
+                        print(f"[DEBUG] Extracted deposit from full text: {deposit}")
+                if additional_costs is None:
+                    add_costs_match = re.search(r'(?:Nebenkosten|\bNK\b|Heizkosten)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?)', article_full_text, re.IGNORECASE)
+                    if add_costs_match:
+                        additional_costs = _clean_price_text(add_costs_match.group(1))
+                        print(f"[DEBUG] Extracted additional_costs from full text: {additional_costs}")
 
                 # Extract location/address
                 location_elem = await article.query_selector("#viewad-locality, [itemprop='addressLocality'], .boxedarticle--details--full")
@@ -468,6 +498,8 @@ async def get_rental_ads(page, browser_manager: PlaywrightManager, allowed_categ
                     "nbr_rooms": nbr_rooms,
                     "available_from": available_from,
                     "location": location,
+                    "deposit": deposit,
+                    "additional_costs": additional_costs,
                 }
 
                 results.append(result_item)

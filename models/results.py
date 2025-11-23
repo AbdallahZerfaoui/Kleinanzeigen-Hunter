@@ -34,27 +34,33 @@ class ListingResult(BaseModel):
 class RealEstateResult(ListingResult):
     """Detailed listing for real-estate inserat pages."""
 
-    rental_space: Optional[int] = None
+    rental_space: Optional[float] = None
     nbr_rooms: Optional[float] = None
     location: Optional[str] = None
     views: Optional[int] = None
     details: Dict[str, Any] = Field(default_factory=dict)
     features: Dict[str, Any] = Field(default_factory=dict)
     old_price: Optional[int] = None
-    additional_costs: Optional[int] = None
-    deposit: Optional[int] = None
+    additional_costs: Optional[float] = None
+    deposit: Optional[float] = None
     available_from: Optional[str] = None
 
     @field_validator("rental_space", mode="before")
     @classmethod
-    def _normalize_rental_space(cls, value: Any) -> Optional[int]:
+    def _normalize_rental_space(cls, value: Any) -> Optional[float]:
         if value in (None, ""):
             return None
         if isinstance(value, str):
-            digits = "".join(ch for ch in value if ch.isdigit())
-            return int(digits) if digits else None
+            # Handle European decimal notation (comma separator)
+            normalized = value.replace(",", ".").strip()
+            # Remove any non-numeric characters except decimal point
+            cleaned = "".join(ch for ch in normalized if ch.isdigit() or ch == ".")
+            try:
+                return float(cleaned) if cleaned else None
+            except ValueError:
+                return None
         if isinstance(value, (int, float)):
-            return int(value)
+            return float(value)
         return None
 
     @field_validator("nbr_rooms", mode="before")
@@ -64,9 +70,11 @@ class RealEstateResult(ListingResult):
             return None
         if isinstance(value, str):
             # Replace comma with dot for German decimal format
-            normalized = value.replace(",", ".")
+            normalized = value.replace(",", ".").strip()
+            # Remove any non-numeric characters except decimal point
+            cleaned = "".join(ch for ch in normalized if ch.isdigit() or ch == ".")
             try:
-                return float(normalized)
+                return float(cleaned) if cleaned else None
             except ValueError:
                 return None
         if isinstance(value, (int, float)):
@@ -83,4 +91,44 @@ class RealEstateResult(ListingResult):
             return int(digits) if digits else None
         if isinstance(value, (int, float)):
             return int(value)
+        return None
+
+    @field_validator("additional_costs", "deposit", mode="before")
+    @classmethod
+    def _normalize_cost_like(cls, value: Any) -> Optional[float]:
+        """Normalize Nebenkosten / Kaution values with European decimal notation."""
+        if value in (None, "", "-"):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            # Remove currency symbols and spaces first
+            cleaned = (
+                value.replace("€", "")
+                .replace("EUR", "")
+                .replace("VB", "")
+                .replace(" ", "")
+                .strip()
+            )
+            # Handle European notation: thousand separator (.) and decimal separator (,)
+            # Remove thousand separators (dots) then convert decimal comma to dot
+            if "," in cleaned and "." in cleaned:
+                # Both present: dot is thousand separator, comma is decimal
+                cleaned = cleaned.replace(".", "").replace(",", ".")
+            elif "," in cleaned:
+                # Only comma: it's the decimal separator
+                cleaned = cleaned.replace(",", ".")
+            elif "." in cleaned:
+                # Only dot: check if it's likely a thousand separator or decimal
+                parts = cleaned.split(".")
+                if len(parts) == 2 and len(parts[1]) == 3:
+                    # Likely thousand separator (e.g., "1.200")
+                    cleaned = cleaned.replace(".", "")
+                # Otherwise treat as decimal separator
+            
+            # Extract numeric value
+            try:
+                return float(cleaned) if cleaned else None
+            except ValueError:
+                return None
         return None
