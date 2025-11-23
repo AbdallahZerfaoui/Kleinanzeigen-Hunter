@@ -1,0 +1,49 @@
+Generate a professional rental application letter in {language} for the following property and applicant.
+
+PROPERTY DETAILS:
+- Title: {rental_title}
+- Location: {rental_location}
+- Size: {rental_space} m²
+- Rooms: {rental_rooms}
+- Monthly Rent (Kaltmiete): {rental_price} €
+- Deposit (Kaution): {rental_deposit} €
+- Additional Costs (Nebenkosten): {rental_additional_costs} €
+- Available From: {rental_available_from}
+- Property URL: {rental_url}
+
+APPLICANT PROFILE:
+- Name: {user_name}
+- Email: {user_email}
+- Occupation: {user_occupation}
+- Monthly Net Income: {user_monthly_income} €
+- Household Size: {user_household_size} person(s)
+- Desired Move-in Date: {user_move_in_date}
+- Smoker: {user_smoker}
+- Pets: {user_pets}
+
+FINANCIAL ANALYSIS:
+- Rent-to-Income Ratio: {rent_to_income_ratio}%
+- Affordability Score: {affordability_score}/100
+- Financial Recommendation: {affordability_recommendation}
+
+ADDITIONAL NOTES:
+{additional_notes}
+
+REQUIREMENTS:
+1. Write the application in {language} ({language_instruction})
+2. Create a compelling subject line
+3. Make it personal and specific to this property
+4. Highlight the applicant's strengths
+5. Address any concerns proactively (e.g., if rent ratio is high, emphasize stability)
+6. Keep it concise yet comprehensive (250-350 words for the body)
+7. Include a list of documents the applicant can provide
+8. End with a request for viewing/interview
+
+Return ONLY the application letter and subject line in the following JSON format:
+{{
+  "subject": "The email subject line",
+  "message": "The complete application letter",
+  "tips": ["tip1", "tip2", "tip3"]
+}}
+
+The tips should be 3-5 actionable suggestions for improving the application chances (e.g., "Attach recent salary slips", "Mention your current landlord reference").

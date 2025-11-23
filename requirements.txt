@@ -4,3 +4,4 @@ playwright>=1.49.0
 python-multipart>=0.0.20
 redis>=5.0.8
 sqlalchemy>=2.0.0
+httpx>=0.25.0

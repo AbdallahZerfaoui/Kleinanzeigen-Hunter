@@ -1,15 +1,38 @@
 services:
-  api:
+  rentals_api:
     build: .
+    container_name: kleinanzeigen-rentals-api
     ports:
       - "8000:8000"
     volumes:
       - .:/app
+      - ./data:/app/data
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - SERVICE_MODE=rentals
+      - PYTHONUNBUFFERED=1
     depends_on:
       - redis
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - default
+
+  application_service_api:
+    build: .
+    container_name: kleinanzeigen-application-service
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - SERVICE_MODE=application
+      - PYTHONUNBUFFERED=1
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    depends_on:
+      - rentals_api
+    command: uvicorn main_applications:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - default
 

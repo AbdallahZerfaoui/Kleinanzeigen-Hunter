@@ -69,3 +69,9 @@ coverage.xml
 # Database
 *.db
 *.sqlite3
+
+# Docs
+*.md
+
+# Test
+*test_*
