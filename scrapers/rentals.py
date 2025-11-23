@@ -171,6 +171,7 @@ def _clean_price_text(value: Optional[str]) -> str:
 
 async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = None):
     """Extract rental listings from the current page."""
+    import re
 
     print("[DEBUG] get_rental_ads: Starting extraction...")
     print("[DEBUG] get_rental_ads: Querying for ad list items...")
@@ -257,8 +258,72 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
                     )
                     continue
 
+                # Extract additional details: rental_space, nbr_rooms, available_from
+                rental_space = None
+                nbr_rooms = None
+                available_from = None
+
+                # Get ALL text content from the article to search for details
+                article_full_text = await article.inner_text()
+                print(f"[DEBUG] Article {data_adid} full text preview: {article_full_text[:200]}")
+
+                # Try multiple selectors for detail information in search results
+                # Look for any element that might contain details
+                detail_selectors = [
+                    "ul.addetailslist--split li.addetailslist--detail",  # Detail page
+                    ".aditem-main--top--left",  # Top left section
+                    ".aditem-details",  # Details section
+                    ".simpletag",  # Tags
+                    "li",  # Any list items
+                ]
+                
+                all_detail_elements = []
+                for selector in detail_selectors:
+                    elements = await article.query_selector_all(selector)
+                    all_detail_elements.extend(elements)
+                
+                print(f"[DEBUG] Found {len(all_detail_elements)} potential detail elements for ad {data_adid}")
+                
+                # Search through all detail elements
+                for detail_elem in all_detail_elements:
+                    detail_text = await detail_elem.inner_text()
+                    detail_text = detail_text.strip()
+                    
+                    if not detail_text:
+                        continue
+
+                    # Extract rental space - look for patterns with m²
+                    if rental_space is None:
+                        # Match patterns like "112 m²", "112m²", "112 qm"
+                        space_match = re.search(r'(\d+)\s*(?:m²|m2|qm)', detail_text, re.IGNORECASE)
+                        if space_match:
+                            rental_space = space_match.group(1)
+                            print(f"[DEBUG] Extracted rental_space: {rental_space} from '{detail_text[:50]}'")
+
+                    # Extract number of rooms - look for "Zimmer" patterns
+                    if nbr_rooms is None:
+                        # Match patterns like "4 Zimmer", "3.5 Zimmer", "2,5 Zi"
+                        room_match = re.search(r'(\d+(?:[.,]\d+)?)\s*(?:Zimmer|Zi\.?)\b', detail_text, re.IGNORECASE)
+                        if room_match and "Schlafzimmer" not in detail_text and "Badezimmer" not in detail_text:
+                            nbr_rooms = room_match.group(1).replace(',', '.')
+                            print(f"[DEBUG] Extracted nbr_rooms: {nbr_rooms} from '{detail_text[:50]}'")
+
+                # Final fallback: Extract from title if still not found
+                if nbr_rooms is None and title_text:
+                    room_match = re.search(r'(\d+(?:[.,]\d+)?)\s*[\s-]*(?:Zimmer|Zi\.?)\b', title_text, re.IGNORECASE)
+                    if room_match:
+                        nbr_rooms = room_match.group(1).replace(',', '.')
+                        print(f"[DEBUG] Extracted nbr_rooms from title: {nbr_rooms}")
+                
+                # Search entire article text for space if still not found
+                if rental_space is None:
+                    space_match = re.search(r'(\d+)\s*(?:m²|m2|qm)', article_full_text, re.IGNORECASE)
+                    if space_match:
+                        rental_space = space_match.group(1)
+                        print(f"[DEBUG] Extracted rental_space from full text: {rental_space}")
+
                 print(
-                    f"[DEBUG] get_rental_ads: Added ad {data_adid} - {title_text[:50]}"
+                    f"[DEBUG] get_rental_ads: Added ad {data_adid} - {title_text[:50]} (rooms: {nbr_rooms}, space: {rental_space})"
                 )
                 result_item = {
                     "adid": data_adid,
@@ -267,6 +332,9 @@ async def get_rental_ads(page, allowed_category_ids: Optional[Sequence[str]] = N
                     "price": price_text,
                     "old_price": old_price_text,
                     "description": description_text,
+                    "rental_space": rental_space,
+                    "nbr_rooms": nbr_rooms,
+                    "available_from": available_from,
                 }
 
                 results.append(result_item)

@@ -42,12 +42,17 @@ class Rental(Base):
     price = Column(String(64), nullable=False)
     old_price = Column(String(64), nullable=False, default="0")
     description = Column(Text, nullable=True)
+    rental_space = Column(String(32), nullable=True)
+    nbr_rooms = Column(String(16), nullable=True)
+    available_from = Column(String(64), nullable=True)
     postal_code = Column(String(32), nullable=True)
     category = Column(String(64), nullable=True)
     location_id = Column(String(64), nullable=True)
     radius = Column(Integer, nullable=True)
     scraped_at = Column(DateTime, server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
 
 def _ensure_data_dir() -> None:
@@ -81,6 +86,9 @@ def insert_rental(
     price: str,
     old_price: str,
     description: Optional[str] = None,
+    rental_space: Optional[str] = None,
+    nbr_rooms: Optional[str] = None,
+    available_from: Optional[str] = None,
     postal_code: Optional[str] = None,
     category: Optional[str] = None,
     location_id: Optional[str] = None,
@@ -97,6 +105,9 @@ def insert_rental(
                 price=price,
                 old_price=old_price or "0",
                 description=description,
+                rental_space=rental_space,
+                nbr_rooms=nbr_rooms,
+                available_from=available_from,
                 postal_code=postal_code,
                 category=category,
                 location_id=location_id,
@@ -111,6 +122,9 @@ def insert_rental(
             existing.price = price
             existing.old_price = old_price or "0"
             existing.description = description
+            existing.rental_space = rental_space
+            existing.nbr_rooms = nbr_rooms
+            existing.available_from = available_from
             existing.postal_code = postal_code
             existing.category = category
             existing.location_id = location_id
@@ -143,6 +157,9 @@ def bulk_insert_rentals(
                     price=r.get("price") or "",
                     old_price=r.get("old_price") or "0",
                     description=r.get("description"),
+                    rental_space=r.get("rental_space"),
+                    nbr_rooms=r.get("nbr_rooms"),
+                    available_from=r.get("available_from"),
                     postal_code=postal_code,
                     category=category,
                     location_id=location_id,
@@ -156,6 +173,9 @@ def bulk_insert_rentals(
                 existing.price = r.get("price") or existing.price
                 existing.old_price = r.get("old_price") or existing.old_price or "0"
                 existing.description = r.get("description") or existing.description
+                existing.rental_space = r.get("rental_space") or existing.rental_space
+                existing.nbr_rooms = r.get("nbr_rooms") or existing.nbr_rooms
+                existing.available_from = r.get("available_from") or existing.available_from
                 existing.postal_code = postal_code or existing.postal_code
                 existing.category = category or existing.category
                 existing.location_id = location_id or existing.location_id
@@ -178,6 +198,9 @@ def get_rental_by_adid(adid: str) -> Optional[Dict[str, Any]]:
             "price": r.price,
             "old_price": r.old_price,
             "description": r.description,
+            "rental_space": r.rental_space,
+            "nbr_rooms": r.nbr_rooms,
+            "available_from": r.available_from,
             "postal_code": r.postal_code,
             "category": r.category,
             "location_id": r.location_id,
@@ -205,6 +228,9 @@ def get_all_rentals(limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
                 "price": r.price,
                 "old_price": r.old_price,
                 "description": r.description,
+                "rental_space": r.rental_space,
+                "nbr_rooms": r.nbr_rooms,
+                "available_from": r.available_from,
                 "postal_code": r.postal_code,
                 "category": r.category,
                 "location_id": r.location_id,
