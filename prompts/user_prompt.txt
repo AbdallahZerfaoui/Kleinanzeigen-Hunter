@@ -1,0 +1,11 @@
+Create a short Kleinanzeigen message in Sie-Form for Abdallah.
+
+DETAILS FOR CONTEXT:
+- Listing title: {{TITLE}}
+- Key features from listing: {{FEATURES}}
+- Abdallah: Cloud Engineer in Neckarsulm, quiet, tidy, structured, learning German, searching for a calm long-term place.
+
+TASK:
+Write a warm, human-feeling message expressing interest and requesting a viewing. Natural tone, no templates. 2–5 sentences only.
+
+BEGIN.

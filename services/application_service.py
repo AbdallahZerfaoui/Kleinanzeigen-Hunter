@@ -1,6 +1,7 @@
 """Service for generating personalized rental applications using LLM."""
 
 import json
+import os
 from typing import Optional, Dict, Any
 from datetime import datetime
 from utils.database import get_rental_by_adid
@@ -10,26 +11,26 @@ from models.results import RealEstateResult
 
 class ApplicationService:
     """Service for generating personalized rental application messages."""
-    
+
     def __init__(self):
         """Initialize the application service."""
         self.llm_client = None
-    
+
     async def _get_llm_client(self) -> OpenRouterClient:
         """Get or create LLM client instance."""
         if self.llm_client is None:
             self.llm_client = OpenRouterClient()
         return self.llm_client
-    
+
     async def generate_message(
         self,
         ad_id: str,
     ) -> Optional[Dict[str, Any]]:
         """Generate presentation message using LLM based on ad description.
-        
+
         Args:
             ad_id: The rental listing ID from database
-            
+
         Returns:
             Dict with generated message, subject, and rental info
         """
@@ -37,16 +38,17 @@ class ApplicationService:
         rental_data = get_rental_by_adid(ad_id)
         if not rental_data:
             return None
-        
+
         # Validate and parse rental data
         rental = RealEstateResult(**rental_data)
-        
+
         # Build context for LLM
         user_prompt = self._build_user_prompt(rental=rental)
-        
+        # user_prompt = load_prompt("user_prompt.txt")
+
         # Load system prompt
         system_prompt = load_prompt("system_prompt.txt")
-        
+
         # Generate application using LLM
         llm_client = await self._get_llm_client()
         try:
@@ -56,10 +58,10 @@ class ApplicationService:
                 temperature=0.7,
                 max_tokens=1000,
             )
-            
+
             # Parse JSON response
             response_data = self._parse_llm_response(response_text)
-            
+
             return {
                 "subject": response_data.get("subject", "Interesse an Ihrer Wohnung"),
                 "message": response_data.get("message", ""),
@@ -82,13 +84,15 @@ class ApplicationService:
                     "affordability_score": 0.0,
                     "rent_to_income_ratio": 0.0,
                     "recommendation": "N/A",
-                    "model_used": "google/gemini-2.0-flash-exp:free",
-                }
+                    "model_used": os.getenv(
+                        "OPENROUTER_MODEL", "google/gemini-2.0-flash-001"
+                    ),
+                },
             }
-            
+
         except Exception as e:
             raise Exception(f"Failed to generate application: {str(e)}")
-    
+
     def _build_user_prompt(
         self,
         rental: RealEstateResult,
@@ -107,29 +111,36 @@ class ApplicationService:
 - Additional Costs: {rental.additional_costs or 'N/A'} EUR
 - Available From: {rental.available_from or 'Nach Vereinbarung'}
 
-The message should:
-1. Express genuine interest in the property
-2. Be polite and professional (use formal "Sie")
-3. Request more information or a viewing
-4. Be concise (3-5 sentences)
-5. Sound natural and personal
+**TASK:**
+Write a polite, professional, and warm message in German (Sie-Form).
 
+**REQUIREMENTS:**
+1. **Reference the Ad:** Mention 1 specific detail from the Title or Description (e.g., "the balcony", "the location", "the fitted kitchen") to prove you read it.
+2. **Establish Stability:** Immediately mention "Cloud Engineer" and "unbefristetes Arbeitsverhältnis" (permanent contract). This is the most important thing for a landlord.
+3. **Tone:** Respectful, serious, but friendly. Not robotic.
+4. **Length:** 6-10 sentences. Not too short, not a novel.
+5. **Structure:**
+   - Salutation (Sehr geehrte Damen und Herren, OR specific name if found in description).
+   - Why this flat? (Specific detail).
+   - Who am I? (Job, income stability, non-smoker).
+   - Call to action (Request viewing).
+   - Closing.
+FORMAT:
 Return a JSON object with:
 {{
-  "subject": "A short, appropriate subject line",
-  "message": "The complete message text",
-  "tips": ["Optional tip 1", "Optional tip 2"]
+  "subject": "A specific subject line including the street or 'Wohnung in [City]'",
+  "message": "The complete German text formatted with line breaks (\\n)"
 }}
 """
         return prompt
-    
+
     def _parse_llm_response(self, response_text: str) -> Dict[str, Any]:
         """Parse LLM response, handling potential JSON formatting issues."""
         try:
             # Try to find JSON block in response
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}') + 1
-            
+            start_idx = response_text.find("{")
+            end_idx = response_text.rfind("}") + 1
+
             if start_idx != -1 and end_idx > start_idx:
                 json_str = response_text[start_idx:end_idx]
                 return json.loads(json_str)
@@ -138,16 +149,16 @@ Return a JSON object with:
                 return {
                     "subject": "Bewerbung für Wohnung",
                     "message": response_text,
-                    "tips": []
+                    "tips": [],
                 }
         except json.JSONDecodeError:
             # Fallback if JSON parsing fails
             return {
                 "subject": "Bewerbung für Wohnung",
                 "message": response_text,
-                "tips": []
+                "tips": [],
             }
-    
+
     async def close(self):
         """Close LLM client connection."""
         if self.llm_client:
