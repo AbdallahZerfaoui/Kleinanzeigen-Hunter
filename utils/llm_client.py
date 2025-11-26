@@ -14,7 +14,7 @@ class OpenRouterClient:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001"),
+        model: str = os.getenv("OPENROUTER_MODEL", "x-ai/grok-4.1-fast"),
         timeout: int = 60
     ):
         """Initialize OpenRouter client.

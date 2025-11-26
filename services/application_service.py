@@ -7,7 +7,9 @@ from datetime import datetime
 from utils.database import get_rental_by_adid
 from utils.llm_client import OpenRouterClient, load_prompt
 from models.results import RealEstateResult
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class ApplicationService:
     """Service for generating personalized rental application messages."""
@@ -85,7 +87,7 @@ class ApplicationService:
                     "rent_to_income_ratio": 0.0,
                     "recommendation": "N/A",
                     "model_used": os.getenv(
-                        "OPENROUTER_MODEL", "google/gemini-2.0-flash-001"
+                        "OPENROUTER_MODEL", "unknown-model"
                     ),
                 },
             }

@@ -12,4 +12,6 @@ dependencies = [
     "redis>=5.0.8",
     "sqlalchemy>=2.0.0",
     "httpx>=0.25.0",
+    "pydantic>=2.10.7",
+    "python-dotenv>=1.0.0",
 ]
